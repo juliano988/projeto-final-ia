@@ -2,8 +2,9 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useState } from "react";
+import { FormEvent, useState, useTransition } from "react";
 import ThemeController from "./components/ThemeController";
+import cloneRepo from "./functions/colneRepo";
 
 export default function Page() {
   const { messages, sendMessage, status } = useChat({
@@ -11,7 +12,50 @@ export default function Page() {
       api: "/api/chat",
     }),
   });
-  const [input, setInput] = useState("");
+
+  const [gitHubUrl, setGitHubUrl] = useState<string>("");
+  const [chatInput, setChatInput] = useState("");
+  const [cloneStatus, setCloneStatus] = useState<{
+    loading: boolean;
+    message?: string;
+    success?: boolean;
+  }>({ loading: false });
+  const [isPending, startTransition] = useTransition();
+
+  async function handleGitHubUrlUpload(e: FormEvent) {
+    e.preventDefault();
+
+    if (!gitHubUrl) return;
+
+    setCloneStatus({ loading: true, message: "Clonando repositório..." });
+
+    startTransition(async () => {
+      try {
+        const result = await cloneRepo(gitHubUrl);
+
+        setCloneStatus({
+          loading: false,
+          message: result.message,
+          success: result.success,
+        });
+
+        if (result.success) {
+          sendMessage({
+            text: `Repositório clonado com sucesso! Agora posso ajudar você com testes unitários para o repositório: ${gitHubUrl}`,
+          });
+          setGitHubUrl("");
+        }
+      } catch (error) {
+        setCloneStatus({
+          loading: false,
+          message: `Erro inesperado: ${
+            error instanceof Error ? error.message : "Erro desconhecido"
+          }`,
+          success: false,
+        });
+      }
+    });
+  }
 
   return (
     <div className="min-h-screen bg-base-200 flex flex-col">
@@ -68,14 +112,87 @@ export default function Page() {
             {messages.length === 0 ? (
               <div className="hero min-h-32">
                 <div className="hero-content text-center">
-                  <div className="max-w-md">
+                  <div className="max-w-xl flex flex-col gap-2">
                     <h2 className="text-2xl font-bold text-base-content/70">
                       👋 Olá!
                     </h2>
                     <p className="py-2 text-base-content">
-                      Como posso ajudá-lo hoje? Digite sua mensagem abaixo para
-                      começar nossa conversa.
+                      Sobre qual repositório que vou te ajudar a gerar os testes
+                      de unidade?
                     </p>
+
+                    {cloneStatus.message && (
+                      <div
+                        className={`alert ${
+                          cloneStatus.success ? "alert-success" : "alert-error"
+                        } mb-4`}
+                      >
+                        <svg
+                          className="w-6 h-6 shrink-0 stroke-current"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          {cloneStatus.success ? (
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            ></path>
+                          ) : (
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            ></path>
+                          )}
+                        </svg>
+                        <span>{cloneStatus.message}</span>
+                      </div>
+                    )}
+
+                    <form
+                      className="flex gap-2"
+                      onSubmit={handleGitHubUrlUpload}
+                    >
+                      <label className="input w-full">
+                        GitHub
+                        <input
+                          type="url"
+                          className="grow w-full"
+                          placeholder="https://github.com/playcanvas/react.git"
+                          value={gitHubUrl}
+                          onChange={(e) => setGitHubUrl(e.target.value)}
+                          disabled={cloneStatus.loading || isPending}
+                        />
+                      </label>
+                      <button
+                        className="btn btn-square"
+                        disabled={
+                          !gitHubUrl || cloneStatus.loading || isPending
+                        }
+                        type="submit"
+                      >
+                        {cloneStatus.loading || isPending ? (
+                          <span className="loading loading-spinner loading-sm"></span>
+                        ) : (
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    </form>
                   </div>
                 </div>
               </div>
@@ -147,9 +264,9 @@ export default function Page() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (input.trim()) {
-                  sendMessage({ text: input });
-                  setInput("");
+                if (chatInput.trim()) {
+                  sendMessage({ text: chatInput });
+                  setChatInput("");
                 }
               }}
               className="flex gap-2"
@@ -157,8 +274,8 @@ export default function Page() {
               <div className="flex-1">
                 <input
                   type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
                   disabled={status !== "ready"}
                   placeholder="Digite sua mensagem aqui..."
                   className="input input-bordered w-full focus:input-primary"
@@ -166,7 +283,7 @@ export default function Page() {
               </div>
               <button
                 type="submit"
-                disabled={status !== "ready" || !input.trim()}
+                disabled={status !== "ready" || !chatInput.trim()}
                 className="btn btn-primary"
               >
                 {status !== "ready" ? (
