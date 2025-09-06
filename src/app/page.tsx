@@ -4,10 +4,12 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { FormEvent, useState, useTransition } from "react";
 import ThemeController from "./components/ThemeController";
-import cloneRepo from "./functions/colneRepo";
+import cloneRepoAction from "./functions/cloneRepoAction";
+import makeRepositoryEmbeddingsAction from "./functions/makeRepositoryEmbeddingsAction";
+import { findSimilarContentTool } from "./api/chat/tools/findSimilarContentTool";
 
 export default function Page() {
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, setMessages, status } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
     }),
@@ -31,7 +33,7 @@ export default function Page() {
 
     startTransition(async () => {
       try {
-        const result = await cloneRepo(gitHubUrl);
+        const result = await cloneRepoAction(gitHubUrl);
 
         setCloneStatus({
           loading: false,
@@ -41,7 +43,7 @@ export default function Page() {
 
         if (result.success) {
           sendMessage({
-            text: `Repositório clonado com sucesso! Agora posso ajudar você com testes unitários para o repositório: ${gitHubUrl}`,
+            text: `Quero que gere para mim os testes de unidade para cobrir esse projeto: ${gitHubUrl}`,
           });
           setGitHubUrl("");
         }

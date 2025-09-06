@@ -14,7 +14,9 @@ interface CloneResult {
   error?: string;
 }
 
-export default async function cloneRepo(url: string): Promise<CloneResult> {
+export default async function cloneRepoAction(
+  url: string
+): Promise<CloneResult> {
   try {
     if (!isValidGitHubUrl(url)) {
       return {
@@ -32,19 +34,24 @@ export default async function cloneRepo(url: string): Promise<CloneResult> {
     // Criar diretório base se não existir
     await fs.mkdir(baseDir, { recursive: true });
 
-    // Verificar se o diretório do repositório já existe
     try {
       await fs.access(localPath);
-      return {
-        success: false,
-        message: `O repositório já existe em: ${localPath}`,
-        localPath,
-        error: "Repository already exists",
-      };
-    } catch {}
+      console.log(`Repositório já existe, atualizando: ${repoName}`);
+      console.log(`Destino: ${localPath}`);
 
-    console.log(`Clonando repositório: ${url}`);
-    console.log(`Destino: ${localPath}`);
+      await execAsync(`cd "${localPath}" && git pull`, {
+        timeout: 30 * 1000,
+      });
+
+      return {
+        success: true,
+        message: `Repositório atualizado com sucesso em: ${localPath}`,
+        localPath,
+      };
+    } catch {
+      console.log(`Repositório não existe, clonando: ${url}`);
+      console.log(`Destino: ${localPath}`);
+    }
 
     await execAsync(`git clone ${url} "${localPath}"`, {
       timeout: 30 * 1000,
