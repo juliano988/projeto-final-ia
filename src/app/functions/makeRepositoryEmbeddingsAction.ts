@@ -6,7 +6,7 @@ import { embed } from "ai";
 import path from "path";
 import { EmbeddingModelV2Embedding } from "@ai-sdk/provider";
 
-type FilesEmbeddings = Array<{
+export type FilesEmbeddings = Array<{
   filePath: string;
   fileContent: string;
   embedding: EmbeddingModelV2Embedding;

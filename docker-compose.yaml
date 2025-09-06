@@ -1,0 +1,20 @@
+services:
+  mongo:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_DB_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_DB_PASSWORD}
+
+  mongo-express:
+    image: mongo-express
+    restart: always
+    ports:
+      - ${MONGO_DB_EXPRESS_PORT}:${MONGO_DB_EXPRESS_PORT}
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_DB_USER}:${MONGO_DB_PASSWORD}@mongo:${MONGO_DB_PORT}/
+      ME_CONFIG_BASICAUTH_ENABLED: true
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_DB_USER}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_DB_PASSWORD}
+    depends_on:
+      - mongo

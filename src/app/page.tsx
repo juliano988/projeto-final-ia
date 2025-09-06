@@ -6,10 +6,10 @@ import { FormEvent, useState, useTransition } from "react";
 import ThemeController from "./components/ThemeController";
 import cloneRepoAction from "./functions/cloneRepoAction";
 import makeRepositoryEmbeddingsAction from "./functions/makeRepositoryEmbeddingsAction";
-import { findSimilarContentTool } from "./api/chat/tools/findSimilarContentTool";
+import uploadEmbeddings from "./functions/uploadEmbeddings";
 
 export default function Page() {
-  const { messages, sendMessage, setMessages, status } = useChat({
+  const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
     }),
@@ -34,6 +34,14 @@ export default function Page() {
     startTransition(async () => {
       try {
         const result = await cloneRepoAction(gitHubUrl);
+
+        if (result.localPath) {
+          const embedings = await makeRepositoryEmbeddingsAction(
+            result.localPath
+          );
+
+          await uploadEmbeddings(gitHubUrl, embedings);
+        }
 
         setCloneStatus({
           loading: false,
