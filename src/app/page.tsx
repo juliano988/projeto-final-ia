@@ -51,7 +51,10 @@ export default function Page() {
 
         if (result.success) {
           sendMessage({
-            text: `Quero que gere para mim os testes de unidade para cobrir esse projeto: ${gitHubUrl}`,
+            text: `Quero que gere para mim os testes de unidade para cobrir esse projeto:`,
+          });
+          sendMessage({
+            text: gitHubUrl,
           });
           setGitHubUrl("");
         }

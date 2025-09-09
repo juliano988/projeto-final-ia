@@ -44,7 +44,12 @@ export default async function makeRepositoryEmbeddingsAction(
       value: fileContentWithNoWitheSpaces,
     });
     allFilesEmbeddings.push({
-      filePath,
+      filePath: path.join(
+        projectFile.parentPath
+          .replace(process.cwd(), "")
+          .replace("cloned-repos", ""),
+        projectFile.name
+      ),
       fileContent: fileContentWithNoWitheSpaces,
       embedding,
     });
