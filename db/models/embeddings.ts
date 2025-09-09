@@ -10,6 +10,6 @@ export default function createEmbeddingsModelBasedOnCollectionName(
 
   return (
     connection.models[collectionName] ||
-    connection.model(collectionName, EmbeddingsSchema)
+    connection.model(collectionName, EmbeddingsSchema, collectionName)
   );
 }
