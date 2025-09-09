@@ -36,11 +36,11 @@ export default function Page() {
         const result = await cloneRepoAction(gitHubUrl);
 
         if (result.localPath) {
-          const embedings = await makeRepositoryEmbeddingsAction(
+          const embeddings = await makeRepositoryEmbeddingsAction(
             result.localPath
           );
 
-          await uploadEmbeddings(gitHubUrl, embedings);
+          await uploadEmbeddings(gitHubUrl, embeddings);
         }
 
         setCloneStatus({

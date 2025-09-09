@@ -1,6 +1,5 @@
 "use server";
 
-import { connection } from "mongoose";
 import createEmbeddingsModelBasedOnCollectionName from "../../../db/models/embeddings";
 import { FilesEmbeddings } from "./makeRepositoryEmbeddingsAction";
 
@@ -17,40 +16,12 @@ export default async function uploadEmbeddings(
     const model = createEmbeddingsModelBasedOnCollectionName(repositoryUrl);
     console.log(`Modelo criado para coleção: ${repositoryUrl}`);
 
-    const bulkOperations = embeddings.map((embedding) => ({
-      updateOne: {
-        filter: {
-          filePath: embedding.filePath,
-          fileContent: embedding.fileContent,
-        },
-        update: {
-          $set: {
-            filePath: embedding.filePath,
-            fileContent: embedding.fileContent,
-            embedding: embedding.embedding,
-          },
-        },
-        upsert: true,
-      },
-    }));
+    await model.deleteMany();
+    await model.insertMany(embeddings);
 
-    console.log(`Executando operação bulk upsert...`);
-    const startTime = Date.now();
-
-    const result = await model.bulkWrite(bulkOperations, {
-      ordered: false,
-    });
-
-    const endTime = Date.now();
-    const duration = endTime - startTime;
-
-    console.log(`Bulk upsert concluído em ${duration}ms`);
-    console.log(`Estatísticas da operação:`, {
-      insertedCount: result.insertedCount,
-      modifiedCount: result.modifiedCount,
-      upsertedCount: result.upsertedCount,
-      matchedCount: result.matchedCount,
-    });
+    console.log(
+      `Upload de embeddings concluído com sucesso para: ${repositoryUrl}`
+    );
   } catch (e) {
     console.error(`Erro durante upload de embeddings:`, e);
     throw new Error(
