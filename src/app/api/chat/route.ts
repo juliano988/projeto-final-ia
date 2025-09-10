@@ -1,13 +1,14 @@
 import { openai } from "@ai-sdk/openai";
-import { convertToCoreMessages, streamText } from "ai";
+import { convertToModelMessages, streamText, UIMessage } from "ai";
 import getAllFilesPathTool from "./tools/getAllFilesPathTool";
 import getFilesContentTool from "./tools/getFilesContentTool";
 import { z } from "zod";
 
 export async function POST(req: Request) {
-  const { messages } = await req.json();
+  const { messages }: { messages: UIMessage[] } = await req.json();
 
-  const result = streamText({
+  // Configuração inicial
+  const config = {
     model: openai("gpt-4o-mini"),
     system: `Você é um assistente útil que ajuda a analisar repositórios de código. 
 
@@ -19,34 +20,18 @@ INSTRUÇÕES CRÍTICAS:
 - Pergunte se o usuário precisa de mais informações
 
 FLUXO OBRIGATÓRIO após usar ferramentas:
-1. Execute a ferramenta necessária
-2. Analise os resultados obtidos
-3. Explique ao usuário o que foi encontrado
-4. Ofereça próximos passos ou pergunte se precisa de mais detalhes
+1. Execute a ferramenta getAllFilesPaths
+2. Com seu resultado, busque arquivos pertinentes com a ferramenta getFilesContent
+3. E com o conteúdo dos arquivos, e gere os testes de unidades.
 
-Exemplo: Se usar getAllFilesPaths, explique quantos arquivos foram encontrados, que tipos de arquivos são, e se há algum padrão interessante na estrutura.`,
-    messages: convertToCoreMessages(messages),
-    onFinish: async ({ finishReason, toolCalls, toolResults }) => {
-      console.log("=== DEBUG INFO ===");
-      console.log("Finish reason:", finishReason);
-      console.log("Tool calls:", toolCalls?.length || 0);
-      console.log("Tool results:", toolResults?.length || 0);
-
-      if (finishReason === "tool-calls" && toolResults?.length) {
-        console.log(
-          "AVISO: Conversa terminou apenas com tool-calls. Isso indica que o modelo não gerou resposta textual."
-        );
-        console.log("Tool results:", JSON.stringify(toolResults, null, 2));
-      }
-    },
+A resposta deve ser somente os testes de unidades
+`,
     tools: {
       getAllFilesPaths: {
         description:
-          "Obter todos os caminhos de arquivos de um repositório específico. Útil para entender a estrutura do repositório e buscar os arquivos do repositório que contem códigos usando a ferramenta getFilesContent.",
+          "Obter todos os caminhos de arquivos de um repositório específico.",
         inputSchema: z.object({
-          repositoryUrl: z
-            .string()
-            .describe("A URL do repositório para analisar"),
+          repositoryUrl: z.string(),
         }),
         execute: async ({ repositoryUrl }: { repositoryUrl: string }) => {
           try {
@@ -61,9 +46,7 @@ Exemplo: Se usar getAllFilesPaths, explique quantos arquivos foram encontrados, 
             return {
               success: false,
               error:
-                error instanceof Error
-                  ? error.message
-                  : "Erro desconhecido ocorreu",
+                error instanceof Error ? error.message : "Erro desconhecido",
               message: "Falha ao obter os caminhos dos arquivos",
             };
           }
@@ -71,14 +54,10 @@ Exemplo: Se usar getAllFilesPaths, explique quantos arquivos foram encontrados, 
       },
       getFilesContent: {
         description:
-          "Obter o conteúdo de arquivos específicos de um repositório. Útil para analisar o código ou conteúdo de arquivos específicos.",
+          "Obter o conteúdo de arquivos específicos de um repositório.",
         inputSchema: z.object({
-          repositoryUrl: z
-            .string()
-            .describe("A URL do repositório para analisar"),
-          filePaths: z
-            .array(z.string())
-            .describe("Array com os caminhos dos arquivos a serem analisados"),
+          repositoryUrl: z.string(),
+          filePaths: z.array(z.string()),
         }),
         execute: async ({
           repositoryUrl,
@@ -102,16 +81,32 @@ Exemplo: Se usar getAllFilesPaths, explique quantos arquivos foram encontrados, 
             return {
               success: false,
               error:
-                error instanceof Error
-                  ? error.message
-                  : "Erro desconhecido ocorreu",
+                error instanceof Error ? error.message : "Erro desconhecido",
               message: "Falha ao obter o conteúdo dos arquivos",
             };
           }
         },
       },
     },
+  };
+
+  // Loop de execução (resolve tool-calls até gerar texto)
+  let result = await streamText({
+    ...config,
+    messages: convertToModelMessages(messages),
   });
 
-  return result.toTextStreamResponse();
+  while (await result.finishReason === "tool-calls") {
+    console.log("⚙️ Modelo pediu ferramentas, executando...");
+
+    // pega o histórico atualizado com tool-calls e tool-results
+    const nextMessages = (await result.response).messages;
+
+    result = await streamText({
+      ...config,
+      messages: nextMessages,
+    });
+  }
+
+  return result.toUIMessageStreamResponse();
 }
